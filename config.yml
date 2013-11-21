@@ -222,7 +222,7 @@ settings:
         # other mods.
         # It is CaseSensitive!
         UnrestrictedName: []
-    # Message language, available : en, de, br, cz, pl, fr, ru, hu, sk, es, zhtw, fi, zhcn, lt, it, ko, pt
+    # Message language, available : en, de, br, cz, pl, fr, ru, hu, sk, es, zhtw, fi, zhcn, lt, it, ko, pt, nl
     messagesLanguage: en
 ExternalBoardOptions:
     # MySQL column for the salt , needed for some forum/cms support
