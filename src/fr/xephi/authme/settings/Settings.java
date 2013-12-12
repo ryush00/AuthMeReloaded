@@ -30,6 +30,7 @@ public final class Settings extends YamlConfiguration {
     public static List<String> getMySQLOtherUsernameColumn = null;
     public static List<String> getForcedWorlds = null;
     public static List<String> countries = null;
+    public static List<String> forceCommands = null;
     public final Plugin plugin;
     private final File file;
     public static DataSourceType getDataSource;
@@ -189,7 +190,7 @@ public void loadConfigOptions() {
         chestshop = configFile.getBoolean("Hooks.chestshop", true);
         notifications = configFile.getBoolean("Hooks.notifications", true);
         bungee = configFile.getBoolean("Hooks.bungeecord", false);
-        getForcedWorlds = (List<String>) configFile.getList("settings.restrictions.ForceSpawnOnTheseWorlds");
+        getForcedWorlds = (List<String>) configFile.getList("settings.restrictions.ForceSpawnOnTheseWorlds", new ArrayList<String>());
         banUnsafeIp = configFile.getBoolean("settings.restrictions.banUnsafedIP", false);
         doubleEmailCheck = configFile.getBoolean("settings.registration.doubleEmailCheck", false);
         sessionExpireOnIpChange = configFile.getBoolean("settings.sessions.sessionExpireOnIpChange", false);
@@ -212,10 +213,11 @@ public void loadConfigOptions() {
         purgeAntiXray = configFile.getBoolean("Purge.removeAntiXRayFile", false);
         //purgePermissions = configFile.getBoolean("Purge.removePermissions", false);
         enableProtection = configFile.getBoolean("Protection.enableProtection", false);
-        countries = (List<String>) configFile.getList("Protection.countries");
+        countries = (List<String>) configFile.getList("Protection.countries", new ArrayList<String>());
         enableAntiBot = configFile.getBoolean("Protection.enableAntiBot", false);
         antiBotSensibility = configFile.getInt("Protection.antiBotSensibility", 5);
         antiBotDuration = configFile.getInt("Protection.antiBotDuration", 10);
+        forceCommands = (List<String>) configFile.getList("settings.forceCommands", new ArrayList<String>());
 
         saveDefaults();
    }
@@ -357,6 +359,7 @@ public static void reloadConfigOptions(YamlConfiguration newConfig) {
         enableAntiBot = configFile.getBoolean("Protection.enableAntiBot", false);
         antiBotSensibility = configFile.getInt("Protection.antiBotSensibility", 5);
         antiBotDuration = configFile.getInt("Protection.antiBotDuration", 10);
+        forceCommands = (List<String>) configFile.getList("settings.forceCommands", new ArrayList<String>());
 }
 
 public void mergeConfig() {
@@ -471,6 +474,8 @@ public void mergeConfig() {
     	   set("Protection.antiBotSensibility", 5);
        if(!contains("Protection.antiBotDuration"))
     	   set("Protection.antiBotDuration", 10);
+       if(!contains("settings.forceCommands"))
+    	   set("settings.forceCommands", new ArrayList<String>());
        
        plugin.getLogger().info("Merge new Config Options if needed..");
        plugin.saveConfig();
@@ -619,11 +624,11 @@ public void mergeConfig() {
         setDefaults(new MemoryConfiguration());
     }
 
-/**
-* Check loaded defaults against current configuration
-*
-* @return false When all defaults aren't present in config
-*/
+    /**
+     * Check loaded defaults against current configuration
+     *
+     * @return false When all defaults aren't present in config
+     */
     public boolean checkDefaults() {
         if (getDefaults() == null) {
             return true;

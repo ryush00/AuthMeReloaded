@@ -224,6 +224,8 @@ settings:
         UnrestrictedName: []
     # Message language, available : en, de, br, cz, pl, fr, ru, hu, sk, es, zhtw, fi, zhcn, lt, it, ko, pt
     messagesLanguage: en
+    #Force these commands after /login, without any '/', use %p for replace with player name
+    forceCommands: []
 ExternalBoardOptions:
     # MySQL column for the salt , needed for some forum/cms support
     mySQLColumnSalt: ''

@@ -228,7 +228,7 @@ public class MySQLDataSource implements DataSource {
             }
             if (!columnOthers.isEmpty()) {
             	for(String column : columnOthers) {
-            		pst = con.prepareStatement("UPDATE " + tableName + " SET " + tableName + "." + column + "=? WHERE " + columnName + "=?;");
+            		pst = con.prepareStatement("UPDATE " + tableName + " SET " + column + "=? WHERE " + columnName + "=?;");
                     pst.setString(1, auth.getRealname());
                     pst.setString(2, auth.getNickname());
                     pst.executeUpdate();

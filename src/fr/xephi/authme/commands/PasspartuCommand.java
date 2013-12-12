@@ -18,7 +18,7 @@ import fr.xephi.authme.settings.Messages;
 public class PasspartuCommand implements CommandExecutor {
     private Utils utils = new Utils();
     public AuthMe plugin;
-	private Messages m;
+	private Messages m = Messages.getInstance();
 
     public PasspartuCommand(AuthMe plugin) {
         this.plugin = plugin;

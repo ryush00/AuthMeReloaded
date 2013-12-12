@@ -53,13 +53,13 @@ public class Management {
     public void performLogin(final Player player, final String password, final boolean passpartu, final boolean forceLogin) {
         if (passpartu) {
             // Passpartu-Login Bypasses Password-Authentication.
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, new AsyncronousPasspartuLogin(player));
+            new AsyncronousPasspartuLogin(player).pass();
         } else {
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, new AsyncronousLogin(player, password, forceLogin));
+        	new AsyncronousLogin(player, password, forceLogin).process();
         }
     }
 
-    class AsyncronousLogin implements Runnable {
+    class AsyncronousLogin {
         protected Player player;
         protected String name;
         protected String password;
@@ -130,8 +130,7 @@ public class Management {
             return pAuth;
         }
 
-        @Override
-        public void run() {
+        protected void process() {
             PlayerAuth pAuth = preAuth();
             if (pAuth == null || needsCaptcha())
                 return;
@@ -220,13 +219,12 @@ public class Management {
         }
     }
 
-    class AsyncronousPasspartuLogin extends AsyncronousLogin implements Runnable {
+    class AsyncronousPasspartuLogin extends AsyncronousLogin {
         public AsyncronousPasspartuLogin(Player player) {
             super(player, null, false);
         }
 
-        @Override
-        public void run() {
+        public void pass() {
             PlayerAuth pAuth = preAuth();
             if (pAuth == null)
                 return;
@@ -342,6 +340,13 @@ public class Management {
                 API.setPlayerInventory(player, event.getInventory(), event.getArmor());
             }
         }
+        protected void forceCommands() {
+        	for (String command : Settings.forceCommands) {
+        		try {
+        			player.performCommand(command.replace("%p", player.getName()));
+        		} catch (Exception e) {}
+        	}
+        }
 
         @Override
         public void run() {
@@ -400,15 +405,19 @@ public class Management {
             }
             
             // We can now display the join message
-            if (AuthMePlayerListener.joinMessage.containsKey(name)) {
+            if (AuthMePlayerListener.joinMessage.containsKey(name) && AuthMePlayerListener.joinMessage.get(name) != null) {
             	for (Player p : Bukkit.getServer().getOnlinePlayers()) {
-            		p.sendMessage(AuthMePlayerListener.joinMessage.get(name));
+            		if (p.isOnline())
+            			p.sendMessage(AuthMePlayerListener.joinMessage.get(name));
             	}
             }
             
             // The Loginevent now fires (as intended) after everything is processed
             Bukkit.getServer().getPluginManager().callEvent(new LoginEvent(player, true));
             player.saveData();
+            
+            // Login is now finish , we can force all commands
+            forceCommands();
         }
     }
 
