@@ -390,8 +390,8 @@ public class AuthMePlayerListener implements Listener {
 
         if (Settings.enableProtection && !Settings.countries.isEmpty()) {
         	String code = plugin.getCountryCode(event.getAddress());
-        	if ((code == null) || (!Settings.countries.contains(code) && !API.isRegistered(name))) {
-        		event.disallow(PlayerLoginEvent.Result.KICK_OTHER, "Your country is banned from this server");
+        	if (((code == null) || (!Settings.countries.contains(code) && !API.isRegistered(name))) && !plugin.authmePermissible(player, "authme.bypassantibot")) {
+        		event.disallow(PlayerLoginEvent.Result.KICK_OTHER, m._("country_banned"));
         		return;
         	}
         }
@@ -463,6 +463,16 @@ public class AuthMePlayerListener implements Listener {
 
         if (event.getResult() == PlayerLoginEvent.Result.ALLOWED) {
         	checkAntiBotMod(event);
+            if (Settings.bungee) {
+                final ByteArrayOutputStream b = new ByteArrayOutputStream();
+                DataOutputStream out = new DataOutputStream(b);
+
+                try {
+                    out.writeUTF("IP");
+                } catch (IOException e) {
+                }
+                player.sendPluginMessage(plugin, "BungeeCord", b.toByteArray());
+            }
         	return;
         }
         if (event.getResult() != PlayerLoginEvent.Result.KICK_FULL) return;
@@ -492,16 +502,18 @@ public class AuthMePlayerListener implements Listener {
     private void checkAntiBotMod(final PlayerLoginEvent event) {
     	if (plugin.delayedAntiBot || plugin.antibotMod)
     		return;
+    	if (plugin.authmePermissible(event.getPlayer(), "authme.bypassantibot"))
+    		return;
     	if (antibot.keySet().size() > Settings.antiBotSensibility) {
     		plugin.switchAntiBotMod(true);
-    		Bukkit.broadcastMessage("[AuthMe] AntiBotMod automatically enabled due to massive connections! ");
+    		Bukkit.broadcastMessage(m._("antibot_auto_enabled"));
     		Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new Runnable(){
 				@Override
 				public void run() {
 					if (plugin.antibotMod) {
 						plugin.switchAntiBotMod(false);
 						antibot.clear();
-						Bukkit.broadcastMessage("[AuthMe] AntiBotMod automatically disabled after " + Settings.antiBotDuration + " Minutes, hope invasion stopped ");
+						Bukkit.broadcastMessage(m._("antibot_auto_disabled").replace("%m", "" + Settings.antiBotDuration));
 					}
 				}
     		}, Settings.antiBotDuration * 1200);
@@ -514,27 +526,6 @@ public class AuthMePlayerListener implements Listener {
 				antibot.remove(event.getPlayer().getName().toLowerCase());
 			}
     	}, 300);
-    }
-
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerLowestJoin(PlayerJoinEvent event) {
-     if (event.getPlayer() == null) return;
-     final Player player = event.getPlayer();
-
-        if (plugin.getCitizensCommunicator().isNPC(player, plugin) || Utils.getInstance().isUnrestricted(player) || CombatTagComunicator.isNPC(player)) {
-            return;
-        }
-
-        if (Settings.bungee) {
-            final ByteArrayOutputStream b = new ByteArrayOutputStream();
-            DataOutputStream out = new DataOutputStream(b);
-             
-            try {
-                out.writeUTF("IP");
-            } catch (IOException e) {
-            }
-            player.sendPluginMessage(plugin, "BungeeCord", b.toByteArray());
-        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -745,7 +736,9 @@ public class AuthMePlayerListener implements Listener {
         	        }
         		} catch (NullPointerException npe) { }
         	}
-        } 
+        } else {
+        	event.setQuitMessage(null);
+        }
 
         if (LimboCache.getInstance().hasLimboPlayer(name)) {
             LimboPlayer limbo = LimboCache.getInstance().getLimboPlayer(name);
@@ -819,6 +812,8 @@ public class AuthMePlayerListener implements Listener {
 	            });
 	        }
 		} catch (NullPointerException npe) { }
+      } else if (!PlayerCache.getInstance().isAuthenticated(name)){
+      	event.setLeaveMessage(null);
       }
 
       if (LimboCache.getInstance().hasLimboPlayer(name))
@@ -1097,11 +1092,14 @@ public class AuthMePlayerListener implements Listener {
         if (!data.isAuthAvailable(name))
             if (!Settings.isForcedRegistrationEnabled)
                 return;
-
-        if (!Settings.isTeleportToSpawnEnabled && !Settings.isForceSpawnLocOnJoinEnabled)
-        	return;
         
         Location spawn = plugin.getSpawnLocation(player.getWorld());
+    	if(Settings.isSaveQuitLocationEnabled && data.isAuthAvailable(name)) {
+    		final PlayerAuth auth = new PlayerAuth(name,spawn.getBlockX(),spawn.getBlockY(),spawn.getBlockZ(),spawn.getWorld().getName());
+    		try {
+    			data.updateQuitLoc(auth);
+    		} catch (NullPointerException npe) { }
+    	}
         event.setRespawnLocation(spawn);
     }
 

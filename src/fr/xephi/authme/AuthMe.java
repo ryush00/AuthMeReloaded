@@ -111,12 +111,12 @@ public class AuthMe extends JavaPlugin {
     public void onEnable() {
     	instance = this;
     	authme = instance;
-    	
+
     	citizens = new CitizensCommunicator(this);
 
         settings = new Settings(this);
         settings.loadConfigOptions();
-        
+
         if (Settings.enableAntiBot) {
         	Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
 				@Override
@@ -126,14 +126,25 @@ public class AuthMe extends JavaPlugin {
         	}, 2400);
         }
 
+    	m = Messages.getInstance();
+
         setMessages(Messages.getInstance());
         pllog = PlayersLogs.getInstance();
 
         server = getServer();
 
         //Set Console Filter
-        if (Settings.removePassword)
-        Bukkit.getLogger().setFilter(new ConsoleFilter());
+        if (Settings.removePassword) {
+        	Bukkit.getLogger().setFilter(new ConsoleFilter());
+        	/*// Check the log4j usage and apply a filter
+        	try {
+            	if (Class.forName("org.apache.logging.log4j.LogManager") != null) {
+            		
+            	}
+        	} catch (Exception e) {}
+        	*/
+        }
+
 
         //Load MailApi
         if(!Settings.getmailAccount.isEmpty() && !Settings.getmailPassword.isEmpty())
@@ -158,7 +169,7 @@ public class AuthMe extends JavaPlugin {
 		checkEssentials();
 
         /*
-         *  Back style on start if avaible
+         *  Back style on start if avalaible
          */
         if(Settings.isBackupActivated && Settings.isBackupOnStart) {
         Boolean Backup = new PerformBackup(this).DoBackup();
@@ -246,6 +257,16 @@ public class AuthMe extends JavaPlugin {
 		management = new Management(database, this);
 
         PluginManager pm = getServer().getPluginManager();
+        if (Settings.bungee) {
+        	Bukkit.getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+        	Bukkit.getMessenger().registerIncomingPluginChannel(this, "BungeeCord", new BungeeCordMessage(this));
+        	try {
+				if (Class.forName("net.md_5.bungee.api.event.ChatEvent") != null)
+					pm.registerEvents(new AuthMeBungeeCordListener(database, this), this);
+			} catch (ClassNotFoundException e) {
+			}
+        	ConsoleLogger.info("Successfully hook with BungeeCord!");
+        }
         if (pm.isPluginEnabled("Spout")) {
         	pm.registerEvents(new AuthMeSpoutListener(database), this);
         	ConsoleLogger.info("Successfully hook with Spout!");
@@ -256,12 +277,6 @@ public class AuthMe extends JavaPlugin {
         if (ChestShop != 0) {
         	pm.registerEvents(new AuthMeChestShopListener(database, this), this);
         	ConsoleLogger.info("Successfully hook with ChestShop!");
-        }
-        if (Settings.bungee) {
-        	Bukkit.getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
-        	Bukkit.getMessenger().registerIncomingPluginChannel(this, "BungeeCord", new BungeeCordMessage(this));
-        	pm.registerEvents(new AuthMeBungeeCordListener(database), this);
-        	ConsoleLogger.info("Successfully hook with BungeeCord!");
         }
 
         //Find Permissions
@@ -723,4 +738,5 @@ public class AuthMe extends JavaPlugin {
     	this.antibotMod = mode;
     	Settings.switchAntiBotMod(mode);
     }
+
 }

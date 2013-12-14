@@ -21,7 +21,7 @@ public class PasswordSecurity {
     private static SecureRandom rnd = new SecureRandom();
     public static HashMap<String, String> userSalt = new HashMap<String, String>();
 
-    private static String createSalt(int length) throws NoSuchAlgorithmException {
+    public static String createSalt(int length) throws NoSuchAlgorithmException {
         byte[] msg = new byte[40];
         rnd.nextBytes(msg);
         MessageDigest sha1 = MessageDigest.getInstance("SHA1");
@@ -86,10 +86,13 @@ public class PasswordSecurity {
         	break;
         case SMF:
         	return method.getHash(password, playerName.toLowerCase());
+        case PHPBB:
+        	salt = createSalt(16);
+        	userSalt.put(playerName, salt);
+        	break;
         case MD5:
         case SHA1:
         case WHIRLPOOL:
-        case PHPBB:
         case PLAINTEXT:
         case XENFORO:
         case SHA512:
@@ -141,7 +144,7 @@ public class PasswordSecurity {
     	for (HashAlgorithm algo : HashAlgorithm.values()) {
     		try {
     			EncryptionMethod method = (EncryptionMethod) algo.getclass().newInstance();
-    			if (algo != HashAlgorithm.CUSTOM)
+    			if (algo != HashAlgorithm.CUSTOM) {
     				if (method.comparePassword(hash, password, playerName)) {
     					PlayerAuth nAuth = AuthMe.getInstance().database.getAuth(playerName);
     					if (nAuth != null) {
@@ -152,6 +155,7 @@ public class PasswordSecurity {
     					}
     					return true;
     				}
+    			}
 			} catch (Exception e) {}
     	}
     	return false;
