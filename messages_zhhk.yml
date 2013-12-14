@@ -1,5 +1,5 @@
 # Translator: uSoc_lifehome (http://lifeho.me) #
-#   '-- Last edit: 1387031307 UTC              #
+#   '-- Last edit: 1387032046  UTC             #
 # -------------------------------------------- #
 unknown_user: '&3[&b用戶系統&3] &f用戶資料並不存在於資料庫中 。'
 unsafe_spawn: '&3[&b用戶系統&3] &f你的登出位置不安全 ， 現在將傳送你到重生點 。'
@@ -25,7 +25,7 @@ pwd_changed: '&3[&b用戶系統&3] &c你成功的更換了你的密碼 ！'
 user_unknown: '&3[&b用戶系統&3] &c此用戶名沒有已登記資料 。'
 password_error: '&3[&b用戶系統&3] &f密碼不符合 。'
 unvalid_session: '&3[&b用戶系統&3] &f登入階段資料已損壞 ， 請等待登入階段結束 。'
-reg_only: '&3[&b用戶系統&3] &f限已註冊會員 ， 請先到 https://www.craftinghk.com/ 註冊 。'
+reg_only: '&3[&b用戶系統&3] &f限已註冊會員 ， 請先到 https://craftinghk.com/mcauth 註冊 。'
 logged_in: '&3[&b用戶系統&3] &c你已經登入過了 。'
 logout: '&3[&b用戶系統&3] &b你成功的登出了 。'
 same_nick: '&3[&b用戶系統&3] &f同名玩家已在遊玩 。'
