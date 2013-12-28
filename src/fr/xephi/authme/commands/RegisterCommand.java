@@ -31,6 +31,7 @@ import fr.xephi.authme.settings.PlayersLogs;
 import fr.xephi.authme.settings.Settings;
 import fr.xephi.authme.task.MessageTask;
 import fr.xephi.authme.task.TimeoutTask;
+import fr.xephi.authme.events.LoginEvent;
 
 
 public class RegisterCommand implements CommandExecutor {
@@ -262,6 +263,8 @@ public class RegisterCommand implements CommandExecutor {
                 if(plugin.notifications != null) {
                 	plugin.notifications.showNotification(new Notification("[AuthMe] " + player.getName() + " has registered!"));
                 }
+                // The Loginevent now fires (as intended) after everything is processed
+                Bukkit.getServer().getPluginManager().callEvent(new LoginEvent(player, true));
             } catch (NoSuchAlgorithmException ex) {
                 ConsoleLogger.showError(ex.getMessage());
                 sender.sendMessage(m._("error"));
