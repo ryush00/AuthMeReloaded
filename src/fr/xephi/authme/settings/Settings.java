@@ -655,6 +655,6 @@ public void mergeConfig() {
     }
 
     public enum messagesLang {
-        en, de, br, cz, pl, fr, ru, hu, sk, es, fi, zhcn, zhhk, lt, it, ko, pt, nl
+        en, de, br, cz, pl, fr, uk, ru, hu, sk, es, fi, zhtw, zhhk, zhcn, lt, it, ko, pt, nl
     }
 }
