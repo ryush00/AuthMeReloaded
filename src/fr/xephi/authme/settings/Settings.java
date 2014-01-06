@@ -485,7 +485,8 @@ public void mergeConfig() {
        if(!contains("Email.delayRecall"))
     	   set("Email.delayRecall", 5);
        
-       plugin.getLogger().info("Merge new Config Options if needed..");
+       plugin.getLogger().warning("Merge new Config Options if needed..");
+       plugin.getLogger().warning("Please check your config.yml file!");
        plugin.saveConfig();
 
        return;
