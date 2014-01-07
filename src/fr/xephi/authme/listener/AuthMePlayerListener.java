@@ -924,7 +924,6 @@ public class AuthMePlayerListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerInventoryOpen(InventoryOpenEvent event) {
         if (event.isCancelled() || event.getPlayer() == null) return;
-        if (!(event.getPlayer() instanceof Player)) return;
         Player player = (Player) event.getPlayer();
         String name = player.getName().toLowerCase();
 
@@ -945,6 +944,7 @@ public class AuthMePlayerListener implements Listener {
             }
         }
         event.setCancelled(true);
+        player.closeInventory();
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
