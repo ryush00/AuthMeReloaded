@@ -23,6 +23,7 @@ import fr.xephi.authme.cache.auth.PlayerCache;
 import fr.xephi.authme.cache.limbo.LimboCache;
 import fr.xephi.authme.cache.limbo.LimboPlayer;
 import fr.xephi.authme.datasource.DataSource;
+import fr.xephi.authme.events.LoginEvent;
 import fr.xephi.authme.events.RegisterTeleportEvent;
 import fr.xephi.authme.security.PasswordSecurity;
 import fr.xephi.authme.security.RandomString;
@@ -184,7 +185,12 @@ public class RegisterCommand implements CommandExecutor {
                         player.setAllowFlight(false);
                         player.setFlying(false);
                     }
+                    // The Loginevent now fires (as intended) after everything is processed
+                    Bukkit.getServer().getPluginManager().callEvent(new LoginEvent(player, true));
                     player.saveData();
+                    
+                    // Register is now finish , we can force all commands
+                    forceCommands(player);
                     if (!Settings.noConsoleSpam)
                     ConsoleLogger.info(player.getName() + " registered "+player.getAddress().getAddress().getHostAddress());
                     if(plugin.notifications != null) {
@@ -256,7 +262,12 @@ public class RegisterCommand implements CommandExecutor {
                     player.setAllowFlight(false);
                     player.setFlying(false);
                 }
+                // The Loginevent now fires (as intended) after everything is processed
+                Bukkit.getServer().getPluginManager().callEvent(new LoginEvent(player, true));
                 player.saveData();
+                
+                // Register is now finish , we can force all commands
+                forceCommands(player);
                 if (!Settings.noConsoleSpam)
                 ConsoleLogger.info(player.getName() + " registered "+player.getAddress().getAddress().getHostAddress());
                 if(plugin.notifications != null) {
@@ -267,5 +278,13 @@ public class RegisterCommand implements CommandExecutor {
                 m._(sender, "error");
             }
         return true;
+    }
+    
+    protected void forceCommands(Player player) {
+    	for (String command : Settings.forceCommands) {
+    		try {
+    			player.performCommand(command.replace("%p", player.getName()));
+    		} catch (Exception e) {}
+    	}
     }
 }
