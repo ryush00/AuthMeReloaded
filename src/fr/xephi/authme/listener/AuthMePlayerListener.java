@@ -722,7 +722,7 @@ public class AuthMePlayerListener implements Listener {
 
         if (PlayerCache.getInstance().isAuthenticated(name) && !player.isDead()) {
         	if(Settings.isSaveQuitLocationEnabled && data.isAuthAvailable(name)) {
-        		final PlayerAuth auth = new PlayerAuth(name,loc.getBlockX(),loc.getBlockY(),loc.getBlockZ(),loc.getWorld().getName());
+        		final PlayerAuth auth = new PlayerAuth(name,loc.getX(),loc.getY(),loc.getZ(),loc.getWorld().getName());
         		try {
         	        if (data instanceof Thread) {
         	        	data.updateQuitLoc(auth);
@@ -799,7 +799,7 @@ public class AuthMePlayerListener implements Listener {
       String name = player.getName().toLowerCase();
       if ((PlayerCache.getInstance().isAuthenticated(name)) && (!player.isDead()) && 
         (Settings.isSaveQuitLocationEnabled)  && data.isAuthAvailable(name)) {
-        final PlayerAuth auth = new PlayerAuth(name, loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(),loc.getWorld().getName());
+        final PlayerAuth auth = new PlayerAuth(name, loc.getX(), loc.getY(), loc.getZ(),loc.getWorld().getName());
 		try {
 	        if (data instanceof Thread) {
 	        	data.updateQuitLoc(auth);
@@ -1095,7 +1095,7 @@ public class AuthMePlayerListener implements Listener {
         
         Location spawn = plugin.getSpawnLocation(player.getWorld());
     	if(Settings.isSaveQuitLocationEnabled && data.isAuthAvailable(name)) {
-    		final PlayerAuth auth = new PlayerAuth(name,spawn.getBlockX(),spawn.getBlockY(),spawn.getBlockZ(),spawn.getWorld().getName());
+    		final PlayerAuth auth = new PlayerAuth(name,spawn.getX(),spawn.getY(),spawn.getZ(),spawn.getWorld().getName());
     		try {
     			data.updateQuitLoc(auth);
     		} catch (NullPointerException npe) { }
