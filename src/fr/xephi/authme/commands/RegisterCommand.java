@@ -159,13 +159,13 @@ public class RegisterCommand implements CommandExecutor {
                 	int msgInterval = Settings.getWarnMessageInterval;
                     if (time != 0) {
                     	Bukkit.getScheduler().cancelTask(LimboCache.getInstance().getLimboPlayer(name).getTimeoutTaskId());
-                        BukkitTask id = Bukkit.getScheduler().runTaskLater(plugin, new TimeoutTask(plugin, name), time);
-                        LimboCache.getInstance().getLimboPlayer(name).setTimeoutTaskId(id.getTaskId());
+                        int id = Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new TimeoutTask(plugin, name), time);
+                        LimboCache.getInstance().getLimboPlayer(name).setTimeoutTaskId(id);
                     }
 
                     Bukkit.getScheduler().cancelTask(LimboCache.getInstance().getLimboPlayer(name).getMessageTaskId());
-                    BukkitTask nwMsg = Bukkit.getScheduler().runTask(plugin, new MessageTask(plugin, name, msg, msgInterval));
-                    LimboCache.getInstance().getLimboPlayer(name).setMessageTaskId(nwMsg.getTaskId());
+                    int nwMsg = Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new MessageTask(plugin, name, msg, msgInterval));
+                    LimboCache.getInstance().getLimboPlayer(name).setMessageTaskId(nwMsg);
 
                 	LimboCache.getInstance().deleteLimboPlayer(name);
                     if (Settings.isTeleportToSpawnEnabled) {
@@ -185,12 +185,7 @@ public class RegisterCommand implements CommandExecutor {
                         player.setAllowFlight(false);
                         player.setFlying(false);
                     }
-                    // The Loginevent now fires (as intended) after everything is processed
-                    Bukkit.getServer().getPluginManager().callEvent(new LoginEvent(player, true));
                     player.saveData();
-                    
-                    // Register is now finish , we can force all commands
-                    forceCommands(player);
                     if (!Settings.noConsoleSpam)
                     ConsoleLogger.info(player.getName() + " registered "+player.getAddress().getAddress().getHostAddress());
                     if(plugin.notifications != null) {
