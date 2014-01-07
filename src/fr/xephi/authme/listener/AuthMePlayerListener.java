@@ -669,10 +669,10 @@ public class AuthMePlayerListener implements Listener {
         int time = Settings.getRegistrationTimeout * 20;
         int msgInterval = Settings.getWarnMessageInterval;
         if (time != 0) {
-            BukkitTask id = sched.runTaskLater(plugin, new TimeoutTask(plugin, name), time);
+            int id = sched.scheduleSyncDelayedTask(plugin, new TimeoutTask(plugin, name), time);
             if(!LimboCache.getInstance().hasLimboPlayer(name))
                  LimboCache.getInstance().addLimboPlayer(player);
-            LimboCache.getInstance().getLimboPlayer(name).setTimeoutTaskId(id.getTaskId());
+            LimboCache.getInstance().getLimboPlayer(name).setTimeoutTaskId(id);
         }
         if(!LimboCache.getInstance().hasLimboPlayer(name))
             LimboCache.getInstance().addLimboPlayer(player);
@@ -682,8 +682,8 @@ public class AuthMePlayerListener implements Listener {
             player.setAllowFlight(true);
             player.setFlying(true);
         }
-        BukkitTask msgT = sched.runTask(plugin, new MessageTask(plugin, name, msg, msgInterval));
-        LimboCache.getInstance().getLimboPlayer(name).setMessageTaskId(msgT.getTaskId());
+        int msgT = sched.scheduleSyncDelayedTask(plugin, new MessageTask(plugin, name, msg, msgInterval));
+        LimboCache.getInstance().getLimboPlayer(name).setMessageTaskId(msgT);
         player.setNoDamageTicks(Settings.getRegistrationTimeout * 20);
         if (Settings.useEssentialsMotd)
         	player.performCommand("motd");
