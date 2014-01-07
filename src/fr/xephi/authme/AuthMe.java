@@ -152,7 +152,8 @@ public class AuthMe extends JavaPlugin {
         	    org.apache.logging.log4j.core.Logger coreLogger = (org.apache.logging.log4j.core.Logger) LogManager.getRootLogger();
         	    coreLogger.addFilter(new Log4JFilter());
         	} catch (Exception e) {
-        	} catch (NoClassDefFoundError e) {}
+        	} catch (ClassNotFoundException e) {
+            } catch (NoClassDefFoundError e) {}
         }
 
         //Load MailApi
