@@ -36,7 +36,6 @@ import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.scheduler.BukkitScheduler;
-import org.bukkit.scheduler.BukkitTask;
 
 import fr.xephi.authme.AuthMe;
 import fr.xephi.authme.ConsoleLogger;
@@ -64,14 +63,16 @@ import fr.xephi.authme.task.TimeoutTask;
 
 public class AuthMePlayerListener implements Listener {
 
-    public static int gm = 0;
-    public static HashMap<String, Integer> gameMode = new HashMap<String, Integer>();
+    public static GameMode gm = GameMode.SURVIVAL;
+    public static HashMap<String, GameMode> gameMode = new HashMap<String, GameMode>();
+    public static HashMap<String, String> joinMessage = new HashMap<String, String>();
 	private Utils utils = Utils.getInstance();
     private Messages m = Messages.getInstance();
     public AuthMe plugin;
     private DataSource data;
     private FileCache playerBackup = new FileCache();
     public boolean causeByAuthMe = false;
+    private HashMap<String, PlayerLoginEvent> antibot = new HashMap<String, PlayerLoginEvent>();
 
     public AuthMePlayerListener(AuthMe plugin, DataSource data) {
         this.plugin = plugin;
@@ -130,16 +131,16 @@ public class AuthMePlayerListener implements Listener {
         String cmd = event.getMessage().split(" ")[0];
         
     	if (data.isAuthAvailable(name)) {
-    		player.sendMessage(m._("login_msg"));
+    		m._(player, "login_msg");
     	} else {
     		if (!Settings.isForcedRegistrationEnabled) {
     			return;
     		}
             if (Settings.emailRegistration) {
-                player.sendMessage(m._("reg_email_msg"));
+            	m._(player, "reg_email_msg");
                 return;
                 } else {
-                player.sendMessage(m._("reg_msg"));
+                	m._(player, "reg_msg");
                 return;
                 }
     	}
@@ -167,16 +168,16 @@ public class AuthMePlayerListener implements Listener {
         String cmd = event.getMessage().split(" ")[0];
         
     	if (data.isAuthAvailable(name)) {
-    		player.sendMessage(m._("login_msg"));
+    		m._(player, "login_msg");
     	} else {
     		if (!Settings.isForcedRegistrationEnabled) {
     			return;
     		}
             if (Settings.emailRegistration) {
-                player.sendMessage(m._("reg_email_msg"));
+                m._(player, "reg_email_msg");
                 return;
                 } else {
-                player.sendMessage(m._("reg_msg"));
+                m._(player, "reg_msg");
                 return;
                 }
     	}
@@ -204,16 +205,16 @@ public class AuthMePlayerListener implements Listener {
         String cmd = event.getMessage().split(" ")[0];
         
     	if (data.isAuthAvailable(name)) {
-    		player.sendMessage(m._("login_msg"));
+    		m._(player, "login_msg");
     	} else {
     		if (!Settings.isForcedRegistrationEnabled) {
     			return;
     		}
             if (Settings.emailRegistration) {
-                player.sendMessage(m._("reg_email_msg"));
+                m._(player, "reg_email_msg");
                 return;
                 } else {
-                player.sendMessage(m._("reg_msg"));
+                m._(player, "reg_msg");
                 return;
                 }
     	}
@@ -241,16 +242,16 @@ public class AuthMePlayerListener implements Listener {
         String cmd = event.getMessage().split(" ")[0];
         
     	if (data.isAuthAvailable(name)) {
-    		player.sendMessage(m._("login_msg"));
+    		m._(player, "login_msg");
     	} else {
     		if (!Settings.isForcedRegistrationEnabled) {
     			return;
     		}
             if (Settings.emailRegistration) {
-                player.sendMessage(m._("reg_email_msg"));
+                m._(player, "reg_email_msg");
                 return;
                 } else {
-                player.sendMessage(m._("reg_msg"));
+                m._(player, "reg_msg");
                 return;
                 }
     	}
@@ -278,16 +279,16 @@ public class AuthMePlayerListener implements Listener {
         String cmd = event.getMessage().split(" ")[0];
         
     	if (data.isAuthAvailable(name)) {
-    		player.sendMessage(m._("login_msg"));
+    		m._(player, "login_msg");
     	} else {
     		if (!Settings.isForcedRegistrationEnabled) {
     			return;
     		}
             if (Settings.emailRegistration) {
-                player.sendMessage(m._("reg_email_msg"));
+                m._(player, "reg_email_msg");
                 return;
                 } else {
-                player.sendMessage(m._("reg_msg"));
+                m._(player, "reg_msg");
                 return;
                 }
     	}
@@ -315,15 +316,15 @@ public class AuthMePlayerListener implements Listener {
         String cmd = event.getMessage().split(" ")[0];
         
     	if (data.isAuthAvailable(name)) {
-    		player.sendMessage(m._("login_msg"));
+    		m._(player, "login_msg");
     	} else {
     		if (!Settings.isForcedRegistrationEnabled) {
     			return;
     		}
             if (Settings.emailRegistration) {
-                player.sendMessage(m._("reg_email_msg"));
+                m._(player, "reg_email_msg");
                 } else {
-                player.sendMessage(m._("reg_msg"));
+                m._(player, "reg_msg");
                 }
     	}
 
@@ -386,6 +387,21 @@ public class AuthMePlayerListener implements Listener {
             return;
         }
 
+        if (Settings.enableProtection && !Settings.countries.isEmpty()) {
+        	String code = plugin.getCountryCode(event.getAddress());
+        	if (((code == null) || (!Settings.countries.contains(code) && !API.isRegistered(name))) && !plugin.authmePermissible(player, "authme.bypassantibot")) {
+        		event.disallow(PlayerLoginEvent.Result.KICK_OTHER, m._("country_banned"));
+        		return;
+        	}
+        }
+
+        if (Settings.isKickNonRegisteredEnabled) {
+            if (!data.isAuthAvailable(name)) {    
+                event.disallow(PlayerLoginEvent.Result.KICK_OTHER, m._("reg_only"));
+                return;
+            }
+        }
+
         if (player.isOnline() && Settings.isForceSingleSessionEnabled) {
         	event.disallow(PlayerLoginEvent.Result.KICK_OTHER, m._("same_nick"));
             return;
@@ -444,11 +460,19 @@ public class AuthMePlayerListener implements Listener {
             return;
         }
 
-        if (Settings.isKickNonRegisteredEnabled) {
-            if (!data.isAuthAvailable(name)) {    
-                event.disallow(PlayerLoginEvent.Result.KICK_OTHER, m._("reg_only"));
-                return;
+        if (event.getResult() == PlayerLoginEvent.Result.ALLOWED) {
+        	checkAntiBotMod(event);
+            if (Settings.bungee) {
+                final ByteArrayOutputStream b = new ByteArrayOutputStream();
+                DataOutputStream out = new DataOutputStream(b);
+
+                try {
+                    out.writeUTF("IP");
+                } catch (IOException e) {
+                }
+                player.sendPluginMessage(plugin, "BungeeCord", b.toByteArray());
             }
+        	return;
         }
         if (event.getResult() != PlayerLoginEvent.Result.KICK_FULL) return;
         if (player.isBanned()) return;
@@ -469,34 +493,38 @@ public class AuthMePlayerListener implements Listener {
         	} else {
         		ConsoleLogger.info("The player " + player.getName() + " wants to join, but the server is full");
         		event.disallow(Result.KICK_FULL, m._("kick_fullserver"));
+        		return;
         	}
         }
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerLowestJoin(PlayerJoinEvent event) {
-     if (event.getPlayer() == null) return;
-     final Player player = event.getPlayer();
-
-        if (plugin.getCitizensCommunicator().isNPC(player, plugin) || Utils.getInstance().isUnrestricted(player) || CombatTagComunicator.isNPC(player)) {
-            return;
-        }
-
-        if (Settings.bungee) {
-            final ByteArrayOutputStream b = new ByteArrayOutputStream();
-            DataOutputStream out = new DataOutputStream(b);
-             
-            try {
-                out.writeUTF("IP");
-            } catch (IOException e) {
-            }
-            Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
-                @Override
-                public void run() {
-                    player.sendPluginMessage(plugin, "BungeeCord", b.toByteArray());
-                }
-            });
-        }
+    private void checkAntiBotMod(final PlayerLoginEvent event) {
+    	if (plugin.delayedAntiBot || plugin.antibotMod)
+    		return;
+    	if (plugin.authmePermissible(event.getPlayer(), "authme.bypassantibot"))
+    		return;
+    	if (antibot.keySet().size() > Settings.antiBotSensibility) {
+    		plugin.switchAntiBotMod(true);
+    		Bukkit.broadcastMessage(m._("antibot_auto_enabled"));
+    		Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new Runnable(){
+				@Override
+				public void run() {
+					if (plugin.antibotMod) {
+						plugin.switchAntiBotMod(false);
+						antibot.clear();
+						Bukkit.broadcastMessage(m._("antibot_auto_disabled").replace("%m", "" + Settings.antiBotDuration));
+					}
+				}
+    		}, Settings.antiBotDuration * 1200);
+    		return;
+    	}
+    	antibot.put(event.getPlayer().getName().toLowerCase(), event);
+    	Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new Runnable(){
+			@Override
+			public void run() {
+				antibot.remove(event.getPlayer().getName().toLowerCase());
+			}
+    	}, 300);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -508,18 +536,20 @@ public class AuthMePlayerListener implements Listener {
         Player player = event.getPlayer();
         World world = player.getWorld();
         Location spawnLoc = plugin.getSpawnLocation(world);
-        gm = player.getGameMode().getValue();
+        gm = player.getGameMode();
         final String name = player.getName().toLowerCase();
         gameMode.put(name, gm);
         BukkitScheduler sched = plugin.getServer().getScheduler();
-        final PlayerJoinEvent e = event;
 
         if (plugin.getCitizensCommunicator().isNPC(player, plugin) || Utils.getInstance().isUnrestricted(player) || CombatTagComunicator.isNPC(player)) {
             return;
         }
 
-        if (plugin.ess != null && Settings.disableSocialSpy)
-        	plugin.ess.getUser(player.getName()).setSocialSpyEnabled(false);
+        if (plugin.ess != null && Settings.disableSocialSpy) {
+        	try {
+        		plugin.ess.getUser(player.getName()).setSocialSpyEnabled(false);
+        	} catch (Exception e) {}
+        }
 
         String ip = player.getAddress().getAddress().getHostAddress();
         if (Settings.bungee) {
@@ -527,9 +557,9 @@ public class AuthMePlayerListener implements Listener {
         		ip = plugin.realIp.get(name);
         }
             if(Settings.isAllowRestrictedIp && !Settings.getRestrictedIp(name, ip)) {
-                int gM = gameMode.get(name);
+                GameMode gM = gameMode.get(name);
                 this.causeByAuthMe = true;
-            	player.setGameMode(GameMode.getByValue(gM));
+            	player.setGameMode(gM);
             	this.causeByAuthMe = false;
                 player.kickPlayer("You are not the Owner of this account, please try another name!");
                 if (Settings.banUnsafeIp)
@@ -550,28 +580,28 @@ public class AuthMePlayerListener implements Listener {
                      	} else {
                      		PlayerCache.getInstance().addPlayer(auth);
                      	}
-                         player.sendMessage(m._("valid_session"));
+                     	m._(player, "valid_session");
                          return;
                      } else if (!Settings.sessionExpireOnIpChange){
-                     	int gM = gameMode.get(name);
+                     	GameMode gM = gameMode.get(name);
                      	this.causeByAuthMe = true;
-                     	player.setGameMode(GameMode.getByValue(gM));
+                     	player.setGameMode(gM);
                      	this.causeByAuthMe = false;
                      	player.kickPlayer(m._("unvalid_session"));
                      	return;
                      } else if (auth.getNickname().equalsIgnoreCase(name)){
                          if (Settings.isForceSurvivalModeEnabled && !Settings.forceOnlyAfterLogin) {
                         	 this.causeByAuthMe = true;
-                        	 e.getPlayer().setGameMode(GameMode.SURVIVAL);
+                        	 Utils.forceGM(player);
                         	 this.causeByAuthMe = false;
                          }
                 		 //Player change his IP between 2 relog-in
                          PlayerCache.getInstance().removePlayer(name);
                          LimboCache.getInstance().addLimboPlayer(player , utils.removeAll(player));
                 	 } else {
-                      	int gM = gameMode.get(name);
+                      	GameMode gM = gameMode.get(name);
                       	this.causeByAuthMe = true;
-                     	player.setGameMode(GameMode.getByValue(gM));
+                     	player.setGameMode(gM);
                      	this.causeByAuthMe = false;
                      	player.kickPlayer(m._("unvalid_session"));
                      	return;
@@ -585,7 +615,7 @@ public class AuthMePlayerListener implements Listener {
           // isent in session or session was ended correctly
             if (Settings.isForceSurvivalModeEnabled && !Settings.forceOnlyAfterLogin) {
             	this.causeByAuthMe = true;
-            	e.getPlayer().setGameMode(GameMode.SURVIVAL);
+            	Utils.forceGM(player);
             	this.causeByAuthMe = false;
             }
             if (Settings.isTeleportToSpawnEnabled || (Settings.isForceSpawnLocOnJoinEnabled  && Settings.getForcedWorlds.contains(player.getWorld().getName()))) {
@@ -605,7 +635,7 @@ public class AuthMePlayerListener implements Listener {
         } else {
             if (Settings.isForceSurvivalModeEnabled && !Settings.forceOnlyAfterLogin) {
             	this.causeByAuthMe = true;
-            	e.getPlayer().setGameMode(GameMode.SURVIVAL);
+            	Utils.forceGM(player);
             	this.causeByAuthMe = false;
             }
             if(!Settings.unRegisteredGroup.isEmpty()){
@@ -638,10 +668,10 @@ public class AuthMePlayerListener implements Listener {
         int time = Settings.getRegistrationTimeout * 20;
         int msgInterval = Settings.getWarnMessageInterval;
         if (time != 0) {
-            BukkitTask id = sched.runTaskLater(plugin, new TimeoutTask(plugin, name), time);
+            int id = sched.scheduleSyncDelayedTask(plugin, new TimeoutTask(plugin, name), time);
             if(!LimboCache.getInstance().hasLimboPlayer(name))
                  LimboCache.getInstance().addLimboPlayer(player);
-            LimboCache.getInstance().getLimboPlayer(name).setTimeoutTaskId(id.getTaskId());
+            LimboCache.getInstance().getLimboPlayer(name).setTimeoutTaskId(id);
         }
         if(!LimboCache.getInstance().hasLimboPlayer(name))
             LimboCache.getInstance().addLimboPlayer(player);
@@ -651,11 +681,15 @@ public class AuthMePlayerListener implements Listener {
             player.setAllowFlight(true);
             player.setFlying(true);
         }
-        BukkitTask msgT = sched.runTask(plugin, new MessageTask(plugin, name, msg, msgInterval));
-        LimboCache.getInstance().getLimboPlayer(name).setMessageTaskId(msgT.getTaskId());
+        int msgT = sched.scheduleSyncDelayedTask(plugin, new MessageTask(plugin, name, msg, msgInterval));
+        LimboCache.getInstance().getLimboPlayer(name).setMessageTaskId(msgT);
         player.setNoDamageTicks(Settings.getRegistrationTimeout * 20);
         if (Settings.useEssentialsMotd)
         	player.performCommand("motd");
+        
+        // Remove the join message while the player isn't logging in
+        joinMessage.put(name, event.getJoinMessage());
+        event.setJoinMessage(null);
     }
 
 	private void placePlayerSafely(Player player, Location spawnLoc) {
@@ -663,7 +697,7 @@ public class AuthMePlayerListener implements Listener {
 			return;
 		Block b = player.getLocation().getBlock();
 		if (b.getType() == Material.PORTAL || b.getType() == Material.ENDER_PORTAL || b.getType() == Material.LAVA || b.getType() == Material.STATIONARY_LAVA) {
-			player.sendMessage(m._("unsafe_spawn"));
+			m._(player, "unsafe_spawn");
 			player.teleport(spawnLoc);
 			return;
 		}
@@ -687,7 +721,7 @@ public class AuthMePlayerListener implements Listener {
 
         if (PlayerCache.getInstance().isAuthenticated(name) && !player.isDead()) {
         	if(Settings.isSaveQuitLocationEnabled && data.isAuthAvailable(name)) {
-        		final PlayerAuth auth = new PlayerAuth(name,loc.getBlockX(),loc.getBlockY(),loc.getBlockZ(),loc.getWorld().getName());
+        		final PlayerAuth auth = new PlayerAuth(name,loc.getX(),loc.getY(),loc.getZ(),loc.getWorld().getName());
         		try {
         	        if (data instanceof Thread) {
         	        	data.updateQuitLoc(auth);
@@ -701,7 +735,9 @@ public class AuthMePlayerListener implements Listener {
         	        }
         		} catch (NullPointerException npe) { }
         	}
-        } 
+        } else {
+        	event.setQuitMessage(null);
+        }
 
         if (LimboCache.getInstance().hasLimboPlayer(name)) {
             LimboPlayer limbo = LimboCache.getInstance().getLimboPlayer(name);
@@ -709,7 +745,7 @@ public class AuthMePlayerListener implements Listener {
             	RestoreInventoryEvent ev = new RestoreInventoryEvent(player, limbo.getInventory(), limbo.getArmour());
             	plugin.getServer().getPluginManager().callEvent(ev);
             	if (!ev.isCancelled()) {
-            		API.setPlayerInventory(player, limbo.getInventory(), limbo.getArmour());
+            		API.setPlayerInventory(player, ev.getInventory(), ev.getArmor());
             	}
             }
             utils.addNormal(player, limbo.getGroup());
@@ -762,7 +798,7 @@ public class AuthMePlayerListener implements Listener {
       String name = player.getName().toLowerCase();
       if ((PlayerCache.getInstance().isAuthenticated(name)) && (!player.isDead()) && 
         (Settings.isSaveQuitLocationEnabled)  && data.isAuthAvailable(name)) {
-        final PlayerAuth auth = new PlayerAuth(name, loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(),loc.getWorld().getName());
+        final PlayerAuth auth = new PlayerAuth(name, loc.getX(), loc.getY(), loc.getZ(),loc.getWorld().getName());
 		try {
 	        if (data instanceof Thread) {
 	        	data.updateQuitLoc(auth);
@@ -775,6 +811,8 @@ public class AuthMePlayerListener implements Listener {
 	            });
 	        }
 		} catch (NullPointerException npe) { }
+      } else if (!PlayerCache.getInstance().isAuthenticated(name)){
+      	event.setLeaveMessage(null);
       }
 
       if (LimboCache.getInstance().hasLimboPlayer(name))
@@ -788,7 +826,7 @@ public class AuthMePlayerListener implements Listener {
             		API.setPlayerInventory(player, ev.getInventory(), ev.getArmor());
             	}
         	} catch (NullPointerException npe){
-        		ConsoleLogger.showError("Problem while restore " + name + "inventory after a kick");
+        		ConsoleLogger.showError("Problem while restore " + name + " inventory after a kick");
         	}
         }
         try {
@@ -885,7 +923,6 @@ public class AuthMePlayerListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerInventoryOpen(InventoryOpenEvent event) {
         if (event.isCancelled() || event.getPlayer() == null) return;
-        if (!(event.getPlayer() instanceof Player)) return;
         Player player = (Player) event.getPlayer();
         String name = player.getName().toLowerCase();
 
@@ -906,6 +943,7 @@ public class AuthMePlayerListener implements Listener {
             }
         }
         event.setCancelled(true);
+        player.closeInventory();
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -1053,11 +1091,14 @@ public class AuthMePlayerListener implements Listener {
         if (!data.isAuthAvailable(name))
             if (!Settings.isForcedRegistrationEnabled)
                 return;
-
-        if (!Settings.isTeleportToSpawnEnabled && !Settings.isForceSpawnLocOnJoinEnabled)
-        	return;
         
         Location spawn = plugin.getSpawnLocation(player.getWorld());
+    	if(Settings.isSaveQuitLocationEnabled && data.isAuthAvailable(name)) {
+    		final PlayerAuth auth = new PlayerAuth(name,spawn.getX(),spawn.getY(),spawn.getZ(),spawn.getWorld().getName());
+    		try {
+    			data.updateQuitLoc(auth);
+    		} catch (NullPointerException npe) { }
+    	}
         event.setRespawnLocation(spawn);
     }
 
@@ -1067,8 +1108,14 @@ public class AuthMePlayerListener implements Listener {
     		return;
         if (event.getPlayer() == null || event == null)
             return;
+        if (!Settings.isForceSurvivalModeEnabled)
+        	return;
 
         Player player = event.getPlayer();
+        
+        if (plugin.authmePermissible(player, "authme.bypassforcesurvival"))
+        	return;
+
         String name = player.getName().toLowerCase();
 
         if (Utils.getInstance().isUnrestricted(player) || CombatTagComunicator.isNPC(player))

@@ -21,7 +21,7 @@ public class PasswordSecurity {
     private static SecureRandom rnd = new SecureRandom();
     public static HashMap<String, String> userSalt = new HashMap<String, String>();
 
-    private static String createSalt(int length) throws NoSuchAlgorithmException {
+    public static String createSalt(int length) throws NoSuchAlgorithmException {
         byte[] msg = new byte[40];
         rnd.nextBytes(msg);
         MessageDigest sha1 = MessageDigest.getInstance("SHA1");
@@ -86,10 +86,13 @@ public class PasswordSecurity {
         	break;
         case SMF:
         	return method.getHash(password, playerName.toLowerCase());
+        case PHPBB:
+        	salt = createSalt(16);
+        	userSalt.put(playerName, salt);
+        	break;
         case MD5:
         case SHA1:
         case WHIRLPOOL:
-        case PHPBB:
         case PLAINTEXT:
         case XENFORO:
         case SHA512:
@@ -126,8 +129,11 @@ public class PasswordSecurity {
         if (method == null)
         	throw new NoSuchAlgorithmException("Unknown hash algorithm");
 
-    	if (method.comparePassword(hash, password, playerName))
-    		return true;
+        try {
+        	if (method.comparePassword(hash, password, playerName))
+        		return true;
+        } catch (Exception e) {
+        }
         if (Settings.supportOldPassword) {
         	try {
             	if (compareWithAllEncryptionMethod(password, hash, playerName))
@@ -139,9 +145,10 @@ public class PasswordSecurity {
 
     private static boolean compareWithAllEncryptionMethod(String password, String hash, String playerName) throws NoSuchAlgorithmException {
     	for (HashAlgorithm algo : HashAlgorithm.values()) {
-    		try {
-    			if (algo != HashAlgorithm.CUSTOM)
-    				if (((EncryptionMethod) algo.getclass().newInstance()).comparePassword(hash, password, playerName)) {
+    		if (algo != HashAlgorithm.CUSTOM)
+        		try {
+        			EncryptionMethod method = (EncryptionMethod) algo.getclass().newInstance();
+    				if (method.comparePassword(hash, password, playerName)) {
     					PlayerAuth nAuth = AuthMe.getInstance().database.getAuth(playerName);
     					if (nAuth != null) {
     						nAuth.setHash(getHash(Settings.getPasswordHash, password, playerName));
@@ -151,9 +158,7 @@ public class PasswordSecurity {
     					}
     					return true;
     				}
-			} catch (InstantiationException e) {
-			} catch (IllegalAccessException e) {
-			}
+    			} catch (Exception e) {}
     	}
     	return false;
     }

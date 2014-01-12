@@ -1,13 +1,23 @@
 package fr.xephi.authme;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
+import java.util.logging.Logger;
+import java.util.zip.GZIPInputStream;
 
 import com.earth2me.essentials.Essentials;
 
+import org.apache.logging.log4j.LogManager;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -25,6 +35,7 @@ import org.bukkit.Location;
 import org.bukkit.Server;
 import org.bukkit.World;
 
+import com.maxmind.geoip.LookupService;
 import com.onarandombox.MultiverseCore.MultiverseCore;
 
 import fr.xephi.authme.api.API;
@@ -73,6 +84,7 @@ public class AuthMe extends JavaPlugin {
 	private Messages m;
     private PlayersLogs pllog;
     public static Server server;
+    public static Logger authmeLogger = Logger.getLogger("AuthMe");
     public static Plugin authme;
     public static Permission permission;
 	private static AuthMe instance;
@@ -95,16 +107,36 @@ public class AuthMe extends JavaPlugin {
 	public MultiverseCore multiverse = null;
 	public Location essentialsSpawn;
 	public Thread databaseThread = null;
+	public LookupService ls = null;
+	public boolean antibotMod = false;
+	public boolean delayedAntiBot = true;
 
-    @Override
+	public Settings getSettings() {
+		return settings;
+	}
+
+	@Override
     public void onEnable() {
     	instance = this;
     	authme = instance;
 
+    	authmeLogger.setParent(this.getLogger());
+
     	citizens = new CitizensCommunicator(this);
 
-        settings = new Settings(this);
-        settings.loadConfigOptions();
+    	settings = new Settings(this);
+    	settings.loadConfigOptions();
+
+        if (Settings.enableAntiBot) {
+        	Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+				@Override
+				public void run() {
+					delayedAntiBot = false;
+				}
+        	}, 2400);
+        }
+
+    	m = Messages.getInstance();
 
         setMessages(Messages.getInstance());
         pllog = PlayersLogs.getInstance();
@@ -112,8 +144,16 @@ public class AuthMe extends JavaPlugin {
         server = getServer();
 
         //Set Console Filter
-        if (Settings.removePassword)
-        Bukkit.getLogger().setFilter(new ConsoleFilter());
+        if (Settings.removePassword) {
+        	this.getLogger().setFilter(new ConsoleFilter());
+        	Bukkit.getLogger().setFilter(new ConsoleFilter());
+        	Logger.getLogger("Minecraft").setFilter(new ConsoleFilter());
+        	authmeLogger.setFilter(new ConsoleFilter());
+
+        	// Set Log4J Filter
+        	org.apache.logging.log4j.core.Logger coreLogger = (org.apache.logging.log4j.core.Logger) LogManager.getRootLogger();
+        	coreLogger.addFilter(new Log4JFilter());
+        }
 
         //Load MailApi
         if(!Settings.getmailAccount.isEmpty() && !Settings.getmailPassword.isEmpty())
@@ -133,12 +173,12 @@ public class AuthMe extends JavaPlugin {
 
 		//Check ChestShop
 		checkChestShop();
-		
+
 		//Check Essentials
 		checkEssentials();
 
         /*
-         *  Back style on start if avaible
+         *  Back style on start if avalaible
          */
         if(Settings.isBackupActivated && Settings.isBackupOnStart) {
         Boolean Backup = new PerformBackup(this).DoBackup();
@@ -153,7 +193,7 @@ public class AuthMe extends JavaPlugin {
             case FILE:
             	if (Settings.useMultiThreading) {
                     FlatFileThread fileThread = new FlatFileThread();
-                    fileThread.run();
+                    fileThread.start();
                     database = fileThread;
                     databaseThread = fileThread;
                     break;
@@ -165,7 +205,7 @@ public class AuthMe extends JavaPlugin {
                     if (Settings.isStopEnabled) {
                     	ConsoleLogger.showError("Can't use FLAT FILE... SHUTDOWN...");
                     	server.shutdown();
-                    } 
+                    }
                     if (!Settings.isStopEnabled)
                     this.getServer().getPluginManager().disablePlugin(this);
                     return;
@@ -174,7 +214,7 @@ public class AuthMe extends JavaPlugin {
             case MYSQL:
             	if (Settings.useMultiThreading) {
                     MySQLThread sqlThread = new MySQLThread();
-                    sqlThread.run();
+                    sqlThread.start();
                     database = sqlThread;
                     databaseThread = sqlThread;
                     break;
@@ -186,7 +226,7 @@ public class AuthMe extends JavaPlugin {
                     if (Settings.isStopEnabled) {
                     	ConsoleLogger.showError("Can't use MySQL... Please input correct MySQL informations ! SHUTDOWN...");
                     	server.shutdown();
-                    } 
+                    }
                     if (!Settings.isStopEnabled)
                     this.getServer().getPluginManager().disablePlugin(this);
                     return;
@@ -195,7 +235,7 @@ public class AuthMe extends JavaPlugin {
             case SQLITE:
             	if (Settings.useMultiThreading) {
                     SQLiteThread sqliteThread = new SQLiteThread();
-                    sqliteThread.run();
+                    sqliteThread.start();
                     database = sqliteThread;
                     databaseThread = sqliteThread;
                     break;
@@ -224,8 +264,19 @@ public class AuthMe extends JavaPlugin {
 
 		// Setup Management
 		management = new Management(database, this);
+		management.start();
 
         PluginManager pm = getServer().getPluginManager();
+        if (Settings.bungee) {
+        	Bukkit.getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+        	Bukkit.getMessenger().registerIncomingPluginChannel(this, "BungeeCord", new BungeeCordMessage(this));
+        	try {
+				if (Class.forName("net.md_5.bungee.api.event.ChatEvent") != null)
+					pm.registerEvents(new AuthMeBungeeCordListener(database, this), this);
+			} catch (ClassNotFoundException e) {
+			}
+        	ConsoleLogger.info("Successfully hook with BungeeCord!");
+        }
         if (pm.isPluginEnabled("Spout")) {
         	pm.registerEvents(new AuthMeSpoutListener(database), this);
         	ConsoleLogger.info("Successfully hook with Spout!");
@@ -236,12 +287,6 @@ public class AuthMe extends JavaPlugin {
         if (ChestShop != 0) {
         	pm.registerEvents(new AuthMeChestShopListener(database, this), this);
         	ConsoleLogger.info("Successfully hook with ChestShop!");
-        }
-        if (Settings.bungee) {
-        	Bukkit.getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
-        	Bukkit.getMessenger().registerIncomingPluginChannel(this, "BungeeCord", new BungeeCordMessage(this));
-        	pm.registerEvents(new AuthMeBungeeCordListener(database), this);
-        	ConsoleLogger.info("Successfully hook with BungeeCord!");
         }
 
         //Find Permissions
@@ -286,8 +331,14 @@ public class AuthMe extends JavaPlugin {
                 }
         	} catch (NullPointerException ex) {
         	}
+        if (Settings.enableProtection)
+        	enableProtection();
         if (Settings.usePurge)
         	autoPurge();
+
+        // Start Email recall task if needed
+        recallEmail();
+
         ConsoleLogger.info("Authme " + this.getDescription().getVersion() + " enabled");
     }
 
@@ -317,9 +368,7 @@ public class AuthMe extends JavaPlugin {
 					} catch (NumberFormatException nfee) {
 					}
 				}
-    		} catch (NullPointerException npe) {}
-    		catch (NoClassDefFoundError ncdfe) {}
-    		catch (ClassCastException cce) {}
+    		} catch (Exception e) {}
     	}
 	}
 
@@ -544,8 +593,9 @@ public class AuthMe extends JavaPlugin {
 		if (!Settings.usePurge) {
 			return;
 		}
-        long days = Settings.purgeDelay * 86400000;
-        long until = new Date().getTime() - days;
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.DATE, -(Settings.purgeDelay));
+        long until = calendar.getTimeInMillis();
 		List<String> cleared = this.database.autoPurgeDatabase(until);
 		ConsoleLogger.info("AutoPurgeDatabase : " + cleared.size() + " accounts removed.");
 		if (cleared.isEmpty())
@@ -575,7 +625,7 @@ public class AuthMe extends JavaPlugin {
 		ConsoleLogger.info("AutoPurgeDatabase : Remove " + i + " players permissions");
 	} */
 
-	private void purgeAntiXray(List<String> cleared) {
+	public void purgeAntiXray(List<String> cleared) {
 		int i = 0;
 		for (String name : cleared) {
 			org.bukkit.OfflinePlayer player = Bukkit.getOfflinePlayer(name);
@@ -590,7 +640,7 @@ public class AuthMe extends JavaPlugin {
 		ConsoleLogger.info("AutoPurgeDatabase : Remove " + i + " AntiXRayData Files");
 	}
 
-	private void purgeLimitedCreative(List<String> cleared) {
+	public void purgeLimitedCreative(List<String> cleared) {
 		int i = 0;
 		for (String name : cleared) {
 			org.bukkit.OfflinePlayer player = Bukkit.getOfflinePlayer(name);
@@ -615,7 +665,7 @@ public class AuthMe extends JavaPlugin {
 		ConsoleLogger.info("AutoPurgeDatabase : Remove " + i + " LimitedCreative Survival, Creative and Adventure files");
 	}
 
-	private void purgeDat(List<String> cleared) {
+	public void purgeDat(List<String> cleared) {
 		int i = 0;
 		for (String name : cleared) {
 			org.bukkit.OfflinePlayer player = Bukkit.getOfflinePlayer(name);
@@ -630,7 +680,7 @@ public class AuthMe extends JavaPlugin {
 		ConsoleLogger.info("AutoPurgeDatabase : Remove " + i + " .dat Files");
 	}
 
-	private void purgeEssentials(List<String> cleared) {
+	public void purgeEssentials(List<String> cleared) {
 		int i = 0;
 		for (String name : cleared) {
 			File playerFile = new File(this.ess.getDataFolder() + File.separator + "userdata" + File.separator + name + ".yml");
@@ -644,7 +694,7 @@ public class AuthMe extends JavaPlugin {
 
     public Location getSpawnLocation(World world) {
         Location spawnLoc = world.getSpawnLocation();
-        if (multiverse != null) {
+        if (multiverse != null && Settings.multiverse) {
             try {
                 spawnLoc = multiverse.getMVWorldManager().getMVWorld(world).getSpawnLocation();
             } catch (NullPointerException npe) {
@@ -658,6 +708,69 @@ public class AuthMe extends JavaPlugin {
         if (Spawn.getInstance().getLocation() != null)
             spawnLoc = Spawn.getInstance().getLocation();
         return spawnLoc;
+    }
+
+    private void enableProtection() {
+    	ConsoleLogger.info(" This product includes GeoLite data created by MaxMind, available from http://www.maxmind.com");
+    	File file = new File(getDataFolder(), "GeoIP.dat");
+    	if (!file.exists()) {
+        	try {
+        		String url = "http://geolite.maxmind.com/download/geoip/database/GeoLiteCountry/GeoIP.dat.gz";
+                URL downloadUrl = new URL(url);
+                URLConnection conn = downloadUrl.openConnection();
+                conn.setConnectTimeout(10000);
+                conn.connect();
+                InputStream input = conn.getInputStream();
+                if (url.endsWith(".gz"))
+                	input = new GZIPInputStream(input);
+                OutputStream output = new FileOutputStream(file);
+                byte[] buffer = new byte[2048];
+                int length = input.read(buffer);
+                while (length >= 0) {
+                	output.write(buffer, 0, length);
+                	length = input.read(buffer);
+                }
+                output.close();
+                input.close();
+        	} catch (Exception e) {}
+    	}
+    }
+
+    public String getCountryCode(InetAddress ip) {
+    	try {
+    		if (ls == null)
+    			ls = new LookupService(new File(getDataFolder(), "GeoIP.dat"));
+        	String code = ls.getCountry(ip).getCode();
+        	if (code != null && !code.isEmpty())
+        		return code;
+    	} catch (Exception e) {}
+    	return null;
+    }
+
+    public void switchAntiBotMod(boolean mode) {
+    	this.antibotMod = mode;
+    	Settings.switchAntiBotMod(mode);
+    }
+
+    private void recallEmail() {
+    	if (!Settings.recallEmail)
+    		return;
+    	Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new Runnable(){
+			@Override
+			public void run() {
+		    	for (Player player : Bukkit.getOnlinePlayers()) {
+		    		if (player.isOnline()) {
+		    			String name = player.getName().toLowerCase();
+		    			if (database.isAuthAvailable(name))
+		    				if (PlayerCache.getInstance().isAuthenticated(name)) {
+		    					String email = database.getAuth(name).getEmail();
+		    					if (email == null || email.isEmpty() || email.equalsIgnoreCase("your@email.com"))
+		    						m._(player, "add_email");
+		    				}
+		    		}
+		    	}
+			}
+    	}, 1, 1200 * Settings.delayRecall);
     }
 
 }

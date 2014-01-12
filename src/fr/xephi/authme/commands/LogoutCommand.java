@@ -7,7 +7,6 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -50,7 +49,7 @@ public class LogoutCommand implements CommandExecutor {
         }
 
         if (!plugin.authmePermissible(sender, "authme." + label.toLowerCase())) {
-            sender.sendMessage(m._("no_perm"));
+        	m._(sender, "no_perm");
             return true;
         }
 
@@ -58,25 +57,21 @@ public class LogoutCommand implements CommandExecutor {
         String name = player.getName().toLowerCase();
 
         if (!PlayerCache.getInstance().isAuthenticated(name)) {
-            player.sendMessage(m._("not_logged_in"));
+        	m._(player, "not_logged_in");
             return true;
         }
 
         PlayerAuth auth = PlayerCache.getInstance().getAuth(name);
         auth.setIp("198.18.0.1");
         database.updateSession(auth);
+        auth.setQuitLocX(player.getLocation().getX());
+        auth.setQuitLocY(player.getLocation().getY());
+        auth.setQuitLocZ(player.getLocation().getZ());
+        auth.setWorld(player.getWorld().getName());
+        database.updateQuitLoc(auth);
 
         PlayerCache.getInstance().removePlayer(name);
 
-        LimboCache.getInstance().addLimboPlayer(player , utils.removeAll(player));
-        LimboCache.getInstance().addLimboPlayer(player);
-        if(Settings.protectInventoryBeforeLogInEnabled) {
-            player.getInventory().setArmorContents(new ItemStack[4]);
-            player.getInventory().setContents(new ItemStack[36]);
-            // create cache file for handling lost of inventories on unlogged in status
-            DataFileCache playerData = new DataFileCache(player.getInventory().getContents(),player.getInventory().getArmorContents());      
-            playerBackup.createCache(name, playerData, LimboCache.getInstance().getLimboPlayer(name).getGroup(),LimboCache.getInstance().getLimboPlayer(name).getOperator(),LimboCache.getInstance().getLimboPlayer(name).isFlying());            
-        }
         if (Settings.isTeleportToSpawnEnabled) {
         	Location spawnLoc = player.getWorld().getSpawnLocation();
             if (plugin.essentialsSpawn != null) {
@@ -92,6 +87,17 @@ public class LogoutCommand implements CommandExecutor {
             	}
           	  	player.teleport(tpEvent.getTo());
             }
+        }
+
+        if (LimboCache.getInstance().hasLimboPlayer(name))
+        	LimboCache.getInstance().deleteLimboPlayer(name);
+        LimboCache.getInstance().addLimboPlayer(player , utils.removeAll(player));
+        LimboCache.getInstance().addLimboPlayer(player);
+        if(Settings.protectInventoryBeforeLogInEnabled) {
+        	player.getInventory().clear();
+            // create cache file for handling lost of inventories on unlogged in status
+            DataFileCache playerData = new DataFileCache(LimboCache.getInstance().getLimboPlayer(name).getInventory(),LimboCache.getInstance().getLimboPlayer(name).getArmour());      
+            playerBackup.createCache(name, playerData, LimboCache.getInstance().getLimboPlayer(name).getGroup(),LimboCache.getInstance().getLimboPlayer(name).getOperator(),LimboCache.getInstance().getLimboPlayer(name).isFlying());            
         }
 
         int delay = Settings.getRegistrationTimeout * 20;
@@ -112,7 +118,7 @@ public class LogoutCommand implements CommandExecutor {
 	        	 player.getVehicle().eject();
         } catch (NullPointerException npe) {
         }
-        player.sendMessage(m._("logout"));
+        m._(player, "logout");
         ConsoleLogger.info(player.getDisplayName() + " logged out");
         if(plugin.notifications != null) {
         	plugin.notifications.showNotification(new Notification("[AuthMe] " + player.getName() + " logged out!"));

@@ -34,7 +34,7 @@ import fr.xephi.authme.settings.Settings;
  * @authors Xephi59, <a href="http://dev.bukkit.org/profiles/Possible/">Possible</a>
  *
  */
-public class Management {
+public class Management extends Thread {
     private Messages m = Messages.getInstance();
     private PlayersLogs pllog = PlayersLogs.getInstance();
     private Utils utils = Utils.getInstance();
@@ -49,27 +49,32 @@ public class Management {
         this.plugin = plugin;
         this.pm = plugin.getServer().getPluginManager();
     }
+    
+    public void run() {
+    }
 
-    public void performLogin(final Player player, final String password, final boolean passpartu) {
+    public void performLogin(final Player player, final String password, final boolean passpartu, final boolean forceLogin) {
         if (passpartu) {
             // Passpartu-Login Bypasses Password-Authentication.
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, new AsyncronousPasspartuLogin(player));
+            new AsyncronousPasspartuLogin(player).pass();
         } else {
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, new AsyncronousLogin(player, password));
+        	new AsyncronousLogin(player, password, forceLogin).process();
         }
     }
 
-    class AsyncronousLogin implements Runnable {
+    class AsyncronousLogin {
         protected Player player;
         protected String name;
         protected String password;
         protected String realName;
+        protected boolean forceLogin;
 
-        public AsyncronousLogin(Player player, String password) {
+        public AsyncronousLogin(Player player, String password, boolean forceLogin) {
             this.player = player;
             this.password = password;
             name = player.getName().toLowerCase();
             realName = player.getName();
+            this.forceLogin = forceLogin;
         }
 
         protected String getIP() {
@@ -89,12 +94,11 @@ public class Management {
                     plugin.captcha.remove(name);
                     plugin.captcha.put(name, i);
                 }
-                if (plugin.captcha.containsKey(name) && plugin.captcha.get(name) > Settings.maxLoginTry) {
-                    player.sendMessage(m._("need_captcha"));
+                if (plugin.captcha.containsKey(name) && plugin.captcha.get(name) >= Settings.maxLoginTry) {
                     plugin.cap.put(name, rdm.nextString());
-                    player.sendMessage("Type : /captcha " + plugin.cap.get(name));
+                    player.sendMessage(m._("need_captcha").replace("THE_CAPTCHA", plugin.cap.get(name)).replace("<theCaptcha>", plugin.cap.get(name)));
                     return true;
-                } else if (plugin.captcha.containsKey(name) && plugin.captcha.get(name) > Settings.maxLoginTry) {
+                } else if (plugin.captcha.containsKey(name) && plugin.captcha.get(name) >= Settings.maxLoginTry) {
                     try {
                         plugin.captcha.remove(name);
                         plugin.cap.remove(name);
@@ -110,27 +114,26 @@ public class Management {
          */
         protected PlayerAuth preAuth() {
             if (PlayerCache.getInstance().isAuthenticated(name)) {
-                player.sendMessage(m._("logged_in"));
+            	m._(player, "logged_in");
                 return null;
             }
             if (!database.isAuthAvailable(name)) {
-                player.sendMessage(m._("user_unknown"));
+            	m._(player, "user_unknown");
                 return null;
             }
             PlayerAuth pAuth = database.getAuth(name);
             if (pAuth == null) {
-                player.sendMessage(m._("user_unknown"));
+            	m._(player, "user_unknown");
                 return null;
             }
             if (!Settings.getMySQLColumnGroup.isEmpty() && pAuth.getGroupId() == Settings.getNonActivatedGroup) {
-                player.sendMessage(m._("vb_nonActiv"));
+            	m._(player, "vb_nonActiv");
                 return null;
             }
             return pAuth;
         }
 
-        @Override
-        public void run() {
+        protected void process() {
             PlayerAuth pAuth = preAuth();
             if (pAuth == null || needsCaptcha())
                 return;
@@ -138,13 +141,14 @@ public class Management {
             String hash = pAuth.getHash();
             String email = pAuth.getEmail();
             boolean passwordVerified = true;
-            try {
-                passwordVerified = PasswordSecurity.comparePasswordWithHash(password, hash, name);
-            } catch (Exception ex) {
-                ConsoleLogger.showError(ex.getMessage());
-                player.sendMessage(m._("error"));
-                return;
-            }
+            if (!forceLogin)
+            	try {
+            		passwordVerified = PasswordSecurity.comparePasswordWithHash(password, hash, name);
+            	} catch (Exception ex) {
+            		ConsoleLogger.showError(ex.getMessage());
+            		m._(player, "error");
+            		return;
+            	}
             if (passwordVerified && player.isOnline()) {
                 PlayerAuth auth = new PlayerAuth(name, hash, getIP(), new Date().getTime(), email, realName);
                 database.updateSession(auth);
@@ -173,7 +177,7 @@ public class Management {
                 }
 
                 player.setNoDamageTicks(0);
-                player.sendMessage(m._("login"));
+                m._(player, "login");
 
                 displayOtherAccounts(auth);
 
@@ -203,13 +207,13 @@ public class Management {
                         @Override
                         public void run() {
                             if (AuthMePlayerListener.gameMode != null && AuthMePlayerListener.gameMode.containsKey(name)) {
-                                player.setGameMode(GameMode.getByValue(AuthMePlayerListener.gameMode.get(name)));
+                                player.setGameMode(AuthMePlayerListener.gameMode.get(name));
                             }
                             player.kickPlayer(m._("wrong_pwd"));
                         }
                     });
                 } else {
-                    player.sendMessage(m._("wrong_pwd"));
+                	m._(player, "wrong_pwd");
                     return;
                 }
             } else {
@@ -218,13 +222,12 @@ public class Management {
         }
     }
 
-    class AsyncronousPasspartuLogin extends AsyncronousLogin implements Runnable {
+    class AsyncronousPasspartuLogin extends AsyncronousLogin {
         public AsyncronousPasspartuLogin(Player player) {
-            super(player, null);
+            super(player, null, false);
         }
 
-        @Override
-        public void run() {
+        public void pass() {
             PlayerAuth pAuth = preAuth();
             if (pAuth == null)
                 return;
@@ -259,7 +262,7 @@ public class Management {
             }
 
             player.setNoDamageTicks(0);
-            player.sendMessage(m._("login"));
+            m._(player, "login");
 
             displayOtherAccounts(auth);
 
@@ -340,6 +343,13 @@ public class Management {
                 API.setPlayerInventory(player, event.getInventory(), event.getArmor());
             }
         }
+        protected void forceCommands() {
+        	for (String command : Settings.forceCommands) {
+        		try {
+        			player.performCommand(command.replace("%p", player.getName()));
+        		} catch (Exception e) {}
+        	}
+        }
 
         @Override
         public void run() {
@@ -355,7 +365,7 @@ public class Management {
                  * Also it's the current world inventory !
                  */
                 if (!Settings.forceOnlyAfterLogin) {
-                	player.setGameMode(GameMode.getByValue(limbo.getGameMode()));
+                	player.setGameMode(limbo.getGameMode());
                     // Inventory - Make it after restore GameMode , cause we need to restore the
                     // right inventory in the right gamemode
                     if (Settings.protectInventoryBeforeLogInEnabled && player.hasPlayedBefore()) {
@@ -388,7 +398,7 @@ public class Management {
                 
                 // Re-Force Survival GameMode if we need due to world change specification
                 if (Settings.isForceSurvivalModeEnabled)
-                	player.setGameMode(GameMode.SURVIVAL);
+                	Utils.forceGM(player);
                 
                 // Cleanup no longer used temporary data
                 LimboCache.getInstance().deleteLimboPlayer(name);
@@ -396,9 +406,22 @@ public class Management {
                     playerCache.removeCache(name);
                 }
             }
+            
+            // We can now display the join message
+            if (AuthMePlayerListener.joinMessage.containsKey(name) && AuthMePlayerListener.joinMessage.get(name) != null) {
+            	for (Player p : Bukkit.getServer().getOnlinePlayers()) {
+            		if (p.isOnline())
+            			p.sendMessage(AuthMePlayerListener.joinMessage.get(name));
+            	}
+            	AuthMePlayerListener.joinMessage.remove(name);
+            }
+            
             // The Loginevent now fires (as intended) after everything is processed
             Bukkit.getServer().getPluginManager().callEvent(new LoginEvent(player, true));
             player.saveData();
+            
+            // Login is now finish , we can force all commands
+            forceCommands();
         }
     }
 
