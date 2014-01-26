@@ -30,7 +30,6 @@ public class LimboCache {
     public void addLimboPlayer(Player player) {
         String name = player.getName().toLowerCase();
         Location loc = player.getLocation();
-        loc.setY(loc.getY() + 0.4D);
         GameMode gameMode = player.getGameMode();
         ItemStack[] arm;
         ItemStack[] inv;
@@ -67,6 +66,7 @@ public class LimboCache {
             if(player.isFlying())
             	flying = true;
             else flying = false;
+            playerGroup = plugin.permission.getPrimaryGroup(player);
         }
 
         if(Settings.isForceSurvivalModeEnabled) {
@@ -82,13 +82,6 @@ public class LimboCache {
         }
         if(player.isDead()) {
         	loc = plugin.getSpawnLocation(player.getWorld());
-        }
-        try {
-            if(cache.containsKey(name) && playerGroup.isEmpty()) {
-                LimboPlayer groupLimbo = cache.get(name);
-                playerGroup = groupLimbo.getGroup();
-            }
-        } catch (NullPointerException ex) {
         }
         cache.put(player.getName().toLowerCase(), new LimboPlayer(name, loc, inv, arm, gameMode, operator, playerGroup, flying));
     }
