@@ -66,7 +66,8 @@ public class LimboCache {
             if(player.isFlying())
             	flying = true;
             else flying = false;
-            playerGroup = plugin.permission.getPrimaryGroup(player);
+            if (plugin.permission != null)
+            	playerGroup = plugin.permission.getPrimaryGroup(player);
         }
 
         if(Settings.isForceSurvivalModeEnabled) {

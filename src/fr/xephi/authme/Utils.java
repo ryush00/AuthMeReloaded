@@ -72,6 +72,7 @@ public class Utils {
     	 if(!Utils.getInstance().useGroupSystem()){
     		 return false;
     	 }
+    	 if(plugin.permission == null) return false;
     	 World world = null;
     	 if(plugin.permission.playerRemoveGroup(world,player.getName().toString(),Settings.getUnloggedinGroup) && plugin.permission.playerAddGroup(world,player.getName().toString(),group)) {
     		 return true;
@@ -80,6 +81,7 @@ public class Utils {
      }
 
      public void hasPermOnJoin(Player player) {
+    	 if (plugin.permission == null) return;
     	 Iterator<String> iter = Settings.getJoinPermissions.iterator();
     	 while (iter.hasNext()) {
     		 String permission = iter.next();
