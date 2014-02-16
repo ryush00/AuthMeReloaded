@@ -588,7 +588,11 @@ public class AuthMePlayerListener implements Listener {
                      		PlayerCache.getInstance().addPlayer(auth);
                      	}
                      	m._(player, "valid_session");
-                        return;
+
+                     	// Restore Permission Group
+                        utils.setGroup(player, Utils.groupType.LOGGEDIN);
+
+                         return;
                      } else if (!Settings.sessionExpireOnIpChange){
                      	GameMode gM = gameMode.get(name);
                      	this.causeByAuthMe = true;
